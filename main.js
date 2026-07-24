@@ -83,10 +83,11 @@
   };
 
   const DEMO_MODE = new URLSearchParams(location.search).has('demo');
+  let VIZ_MODE = false;         // true when running as a viz extension (Marks card)
 
   let config = Object.assign({}, DEFAULTS);
   let rows = [];                // [{levels: [v1, v2, ...], value: n}]
-  let levelCaptions = [];
+  let levelCaptions = [];       // effective level field names, left to right
   let stickyKey = null;         // sticky highlight (click mode)
   let appliedFilters = [];      // [{wsName, fieldName}]
   let renderPending = null;
@@ -202,25 +203,67 @@
 
   // ---------------------------------------------------------------- data
 
+  function getWorksheet() {
+    if (VIZ_MODE) return tableau.extensions.worksheetContent.worksheet;
+    return tableau.extensions.dashboardContent.dashboard.worksheets
+      .find(w => w.name === config.worksheet);
+  }
+
+  async function getSummaryTable(ws) {
+    if (typeof ws.getSummaryDataReaderAsync === 'function') {
+      const reader = await ws.getSummaryDataReaderAsync(undefined, { ignoreSelection: true });
+      const table = await reader.getAllPagesAsync();
+      await reader.releaseAsync();
+      return table;
+    }
+    return ws.getSummaryDataAsync({ ignoreSelection: true });
+  }
+
+  // viz mode: read field mapping from the Levels / Link Value encoding tiles
+  async function encodedFields(ws) {
+    try {
+      const spec = await ws.getVisualSpecificationAsync();
+      const marks = spec.marksSpecifications[spec.activeMarksSpecificationIndex];
+      if (!marks) return null;
+      const levels = marks.encodings.filter(e => e.id === 'level').map(e => e.field.name);
+      const size = marks.encodings.find(e => e.id === 'size');
+      if (levels.length >= 2 && size) return { levels: levels, measure: size.field.name };
+      return null;
+    } catch (e) {
+      return null;
+    }
+  }
+
   async function loadData() {
-    const dashboard = tableau.extensions.dashboardContent.dashboard;
-    const ws = dashboard.worksheets.find(w => w.name === config.worksheet);
+    const ws = getWorksheet();
     if (!ws) {
       showPlaceholder('Worksheet "' + config.worksheet + '" was not found on this dashboard. ' +
         'The source worksheet must be on the dashboard (it can be hidden behind other objects).', true);
       return false;
     }
-    const summary = await ws.getSummaryDataAsync({ ignoreSelection: true });
-    const cols = summary.columns;
 
-    const levelIdx = config.levels.map(name => cols.findIndex(c => c.fieldName === name));
-    const measureIdx = cols.findIndex(c => c.fieldName === config.measure);
-    if (levelIdx.some(i => i < 0) || measureIdx < 0) {
-      showPlaceholder('Configured fields were not found on the worksheet. Re-open the configuration and re-select the level dimensions and measure.', true);
+    let levels = config.levels;
+    let measure = config.measure;
+    if (VIZ_MODE) {
+      const enc = await encodedFields(ws);
+      if (enc) { levels = enc.levels; measure = enc.measure; }
+    }
+    if (levels.length < 2 || !measure) {
+      showPlaceholder('Drop at least two dimensions on the Levels tile and a measure on the Link Value tile of the Marks card (or map fields manually in the configuration).', true);
       return false;
     }
 
-    levelCaptions = config.levels.slice();
+    const summary = await getSummaryTable(ws);
+    const cols = summary.columns;
+
+    const levelIdx = levels.map(name => cols.findIndex(c => c.fieldName === name));
+    const measureIdx = cols.findIndex(c => c.fieldName === measure);
+    if (levelIdx.some(i => i < 0) || measureIdx < 0) {
+      showPlaceholder('Configured fields were not found on the worksheet. Re-check the encoding tiles or re-select the fields in the configuration.', true);
+      return false;
+    }
+
+    levelCaptions = levels.slice();
     rows = [];
     for (const row of summary.data) {
       const levels = levelIdx.map(i => {
@@ -633,8 +676,13 @@
       // fields: [{fieldName, value}]
       if (DEMO_MODE || config.actionType === 'none') return;
       try {
-        const dashboard = tableau.extensions.dashboardContent.dashboard;
-        if (config.actionType === 'filter') {
+        if (config.actionType === 'select' && VIZ_MODE) {
+          const ws = getWorksheet();
+          await ws.selectMarksByValueAsync(
+            fields.map(f => ({ fieldName: f.fieldName, value: [f.value] })),
+            tableau.SelectionUpdateType.Replace);
+        } else if (config.actionType === 'filter' && !VIZ_MODE) {
+          const dashboard = tableau.extensions.dashboardContent.dashboard;
           for (const wsName of config.actionTargets) {
             const ws = dashboard.worksheets.find(w => w.name === wsName);
             if (!ws) continue;
@@ -644,14 +692,20 @@
             }
           }
         } else if (config.actionType === 'parameter' && config.actionParameter) {
-          const p = await dashboard.findParameterAsync(config.actionParameter);
+          const scope = VIZ_MODE ? getWorksheet() : tableau.extensions.dashboardContent.dashboard;
+          const p = await scope.findParameterAsync(config.actionParameter);
           if (p) await p.changeValueAsync(fields[0].value);
         }
       } catch (e) { console.warn('action failed', e); }
     }
 
     async function clearAction() {
-      if (DEMO_MODE || config.actionType !== 'filter' || !config.clearOnDeselect) return;
+      if (DEMO_MODE || !config.clearOnDeselect) return;
+      if (config.actionType === 'select' && VIZ_MODE) {
+        try { await getWorksheet().clearSelectedMarksAsync(); } catch (e) { /* noop */ }
+        return;
+      }
+      if (config.actionType !== 'filter' || VIZ_MODE) return;
       try {
         const dashboard = tableau.extensions.dashboardContent.dashboard;
         const seen = new Set();
@@ -690,7 +744,7 @@
           stickyKey = d.id;
           setHighlight(nodePredicate(d));
         }
-        runAction([{ fieldName: config.levels[d.level], value: d.name }]);
+        runAction([{ fieldName: levelCaptions[d.level], value: d.name }]);
       });
 
     linkSel
@@ -715,8 +769,8 @@
           setHighlight(linkPredicate(d));
         }
         runAction([
-          { fieldName: config.levels[d.source.level], value: d.source.name },
-          { fieldName: config.levels[d.target.level], value: d.target.name }
+          { fieldName: levelCaptions[d.source.level], value: d.source.name },
+          { fieldName: levelCaptions[d.target.level], value: d.target.name }
         ]);
       });
 
@@ -752,7 +806,7 @@
 
   async function refresh() {
     readSettings();
-    if (!config.worksheet || config.levels.length < 2 || !config.measure) {
+    if (!VIZ_MODE && (!config.worksheet || config.levels.length < 2 || !config.measure)) {
       showPlaceholder('Open the configuration to choose a worksheet, at least two level dimensions, and a measure.', true);
       return;
     }
@@ -777,13 +831,31 @@
   // ---------------------------------------------------------------- init
 
   function wireWorksheetEvents() {
-    const dashboard = tableau.extensions.dashboardContent.dashboard;
-    dashboard.worksheets.forEach(ws => {
+    const sheets = VIZ_MODE
+      ? [tableau.extensions.worksheetContent.worksheet]
+      : tableau.extensions.dashboardContent.dashboard.worksheets;
+    sheets.forEach(ws => {
       if (tableau.TableauEventType.SummaryDataChanged) {
         try { ws.addEventListener(tableau.TableauEventType.SummaryDataChanged, refresh); } catch (e) { /* older API */ }
       }
       try { ws.addEventListener(tableau.TableauEventType.FilterChanged, refresh); } catch (e) { /* noop */ }
     });
+  }
+
+  // authoring-mode gear button so the configuration is always reachable in viz mode
+  function addConfigButton() {
+    try {
+      if (tableau.extensions.environment.mode !== 'authoring') return;
+    } catch (e) { return; }
+    const btn = document.createElement('button');
+    btn.id = 'gear';
+    btn.title = 'Configure Sankey (Auto-Contrast)';
+    btn.textContent = '⚙';
+    btn.style.cssText = 'position:absolute;top:4px;right:4px;z-index:6;width:26px;height:26px;' +
+      'border:1px solid #ccc;border-radius:50%;background:rgba(255,255,255,0.9);cursor:pointer;' +
+      'font-size:14px;line-height:1;color:#3d3c3c;';
+    btn.addEventListener('click', openConfig);
+    document.getElementById('root').appendChild(btn);
   }
 
   if (DEMO_MODE) {
@@ -792,13 +864,16 @@
     hidePlaceholder();
     render();
     window.addEventListener('resize', scheduleRender);
+    new ResizeObserver(scheduleRender).observe(chartEl);
     window.__sankeyDemo = {
       setConfig: function (patch) { Object.assign(config, patch); render(); },
       getConfig: function () { return config; }
     };
   } else {
     tableau.extensions.initializeAsync({ configure: openConfig }).then(function () {
+      VIZ_MODE = !!tableau.extensions.worksheetContent;
       phButton.addEventListener('click', openConfig);
+      addConfigButton();
       tableau.extensions.settings.addEventListener(
         tableau.TableauEventType.SettingsChanged, refresh);
       wireWorksheetEvents();

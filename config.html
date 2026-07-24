@@ -97,7 +97,8 @@
           <label>Worksheet</label>
           <select id="worksheet"></select>
         </div>
-        <p class="hint">The worksheet must be on this dashboard. It can be hidden behind another object. Put each level dimension and the measure on the worksheet (e.g. Rows/Detail).</p>
+        <p class="hint" id="viz-mode-hint" style="display:none">Running on this worksheet's Marks card. If the Levels and Link Value tiles hold fields, they are used automatically and the pickers below are ignored; use the pickers only to override.</p>
+        <p class="hint" id="dash-mode-hint">The worksheet must be on this dashboard. It can be hidden behind another object. Put each level dimension and the measure on the worksheet (e.g. Rows/Detail).</p>
       </fieldset>
       <fieldset>
         <legend>Levels (order = left to right)</legend>

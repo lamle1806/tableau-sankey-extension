@@ -30,9 +30,26 @@
   };
 
   let config = Object.assign({}, DEFAULTS);
+  let VIZ_MODE = false;  // viz extension (Marks card) vs dashboard extension
   let dimensions = [];   // [{fieldName}]
   let measures = [];
   let distinctValues = {}; // fieldName -> [values]
+
+  function getWorksheet(wsName) {
+    if (VIZ_MODE) return tableau.extensions.worksheetContent.worksheet;
+    return tableau.extensions.dashboardContent.dashboard.worksheets
+      .find(w => w.name === wsName);
+  }
+
+  async function getSummaryTable(ws) {
+    if (typeof ws.getSummaryDataReaderAsync === 'function') {
+      const reader = await ws.getSummaryDataReaderAsync(undefined, { ignoreSelection: true });
+      const table = await reader.getAllPagesAsync();
+      await reader.releaseAsync();
+      return table;
+    }
+    return ws.getSummaryDataAsync({ ignoreSelection: true });
+  }
 
   const $ = id => document.getElementById(id);
   const status = msg => { $('status').textContent = msg || ''; };
@@ -53,12 +70,11 @@
     dimensions = [];
     measures = [];
     distinctValues = {};
-    const ws = tableau.extensions.dashboardContent.dashboard.worksheets
-      .find(w => w.name === wsName);
+    const ws = getWorksheet(wsName);
     if (!ws) return;
     status('Reading worksheet columns…');
     try {
-      const summary = await ws.getSummaryDataAsync({ ignoreSelection: true });
+      const summary = await getSummaryTable(ws);
       summary.columns.forEach(col => {
         const t = col.dataType;
         if (t === 'int' || t === 'float') measures.push(col.fieldName);
@@ -93,6 +109,13 @@
   function renderWorksheets() {
     const sel = $('worksheet');
     sel.innerHTML = '';
+    if (VIZ_MODE) {
+      const row = sel.closest('.row');
+      if (row) row.style.display = 'none';
+      document.getElementById('viz-mode-hint').style.display = '';
+      document.getElementById('dash-mode-hint').style.display = 'none';
+      return;
+    }
     option(sel, '', '— choose a worksheet —', !config.worksheet);
     tableau.extensions.dashboardContent.dashboard.worksheets.forEach(ws => {
       option(sel, ws.name, ws.name, ws.name === config.worksheet);
@@ -199,6 +222,7 @@
   function renderActionTargets() {
     const box = $('action-targets');
     box.innerHTML = '';
+    if (VIZ_MODE) return;
     tableau.extensions.dashboardContent.dashboard.worksheets.forEach(ws => {
       if (ws.name === config.worksheet) return;
       const line = document.createElement('div');
@@ -223,13 +247,32 @@
     sel.innerHTML = '';
     option(sel, '', '— choose a parameter —', !config.actionParameter);
     try {
-      const params = await tableau.extensions.dashboardContent.dashboard.getParametersAsync();
+      const scope = VIZ_MODE
+        ? tableau.extensions.worksheetContent.worksheet
+        : tableau.extensions.dashboardContent.dashboard;
+      const params = await scope.getParametersAsync();
       params.forEach(p => option(sel, p.name, p.name, p.name === config.actionParameter));
     } catch (e) { /* noop */ }
   }
 
+  function adaptActionOptions() {
+    // viz extensions cannot filter other sheets; they select marks instead,
+    // which native dashboard actions can then respond to
+    if (!VIZ_MODE) return;
+    const sel = $('actionType');
+    const filterOpt = sel.querySelector('option[value="filter"]');
+    if (filterOpt) filterOpt.remove();
+    if (!sel.querySelector('option[value="select"]')) {
+      const o = document.createElement('option');
+      o.value = 'select';
+      o.textContent = 'Select marks (drives dashboard actions)';
+      sel.insertBefore(o, sel.querySelector('option[value="parameter"]'));
+    }
+    if (config.actionType === 'filter') config.actionType = 'none';
+  }
+
   function toggleActionOpts() {
-    $('action-filter-opts').style.display = config.actionType === 'filter' ? '' : 'none';
+    $('action-filter-opts').style.display = config.actionType === 'filter' && !VIZ_MODE ? '' : 'none';
     $('action-param-opts').style.display = config.actionType === 'parameter' ? '' : 'none';
   }
 
@@ -285,10 +328,19 @@
     $('cancel').addEventListener('click', () => tableau.extensions.ui.closeDialog(''));
     $('save').addEventListener('click', async () => {
       config.levels = config.levels.filter(Boolean);
-      if (!config.worksheet) { status('Choose a worksheet first.'); return; }
-      if (config.levels.length < 2) { status('Choose at least two level dimensions.'); return; }
-      if (new Set(config.levels).size !== config.levels.length) { status('Each level must use a different dimension.'); return; }
-      if (!config.measure) { status('Choose a measure.'); return; }
+      if (VIZ_MODE) {
+        // empty mapping is fine: fields then come from the Marks card encoding tiles
+        if (config.levels.length || config.measure) {
+          if (config.levels.length < 2) { status('Choose at least two level dimensions (or clear all to use the Marks card tiles).'); return; }
+          if (new Set(config.levels).size !== config.levels.length) { status('Each level must use a different dimension.'); return; }
+          if (!config.measure) { status('Choose a measure (or clear all to use the Marks card tiles).'); return; }
+        }
+      } else {
+        if (!config.worksheet) { status('Choose a worksheet first.'); return; }
+        if (config.levels.length < 2) { status('Choose at least two level dimensions.'); return; }
+        if (new Set(config.levels).size !== config.levels.length) { status('Each level must use a different dimension.'); return; }
+        if (!config.measure) { status('Choose a measure.'); return; }
+      }
       status('Saving…');
       tableau.extensions.settings.set('config', JSON.stringify(config));
       try {
@@ -302,12 +354,15 @@
 
   // ------------------------------------------------------------ init
   tableau.extensions.initializeDialogAsync().then(async () => {
+    VIZ_MODE = !!tableau.extensions.worksheetContent;
     const raw = tableau.extensions.settings.get('config');
     if (raw) {
       try { Object.assign(config, JSON.parse(raw)); } catch (e) { /* defaults */ }
     }
+    adaptActionOptions();
     renderWorksheets();
-    if (config.worksheet) await loadColumns(config.worksheet);
+    if (VIZ_MODE) await loadColumns('');
+    else if (config.worksheet) await loadColumns(config.worksheet);
     renderLevels();
     renderMeasures();
     renderPalette();

@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest manifest-version="0.1" xmlns="http://www.tableau.com/xml/extension_manifest">
+  <worksheet-extension id="com.ignitereading.sankey-autocontrast-viz" extension-version="1.1.0">
+    <default-locale>en_US</default-locale>
+    <name resource-id="name"/>
+    <description>Sankey diagram with auto-contrast node and link labels</description>
+    <author name="Ignite Reading Data Team" email="lam.le@ignite-reading.com" organization="Ignite Reading" website="https://ignite-reading.com"/>
+    <min-api-version>1.10</min-api-version>
+    <source-location>
+      <url>https://lamle1806.github.io/tableau-sankey-extension/index.html</url>
+    </source-location>
+    <icon>iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAIAAABvFaqvAAAAc0lEQVR42mP4TyXAMFgNestYD0fEaFNn8IajIWQQMcaRYBB+s0gzCKtxyEYQFUZYzcI0hajARhbEagRpsYZmEPnRD1QKNwguS5pByKrRFJBgEKZSZGXEGoTVFKxBhs8gXEYgm0WCQVTIIgRNGVrFyHAs/AGkTAl+zZ84jwAAAABJRU5ErkJggg==</icon>
+    <encoding id="level">
+      <display-name>Levels</display-name>
+      <data-spec>
+        <data-type>string</data-type>
+        <data-type>boolean</data-type>
+        <data-type>temporal</data-type>
+      </data-spec>
+      <role-spec>
+        <role-type>discrete-dimension</role-type>
+      </role-spec>
+      <fields max-count="6"/>
+      <tooltip>Drop 2 or more dimensions here, ordered left to right (e.g. Current Unit, Reading Goal)</tooltip>
+    </encoding>
+    <encoding id="size">
+      <display-name>Link Value</display-name>
+      <data-spec>
+        <data-type>numeric</data-type>
+      </data-spec>
+      <role-spec>
+        <role-type>continuous-measure</role-type>
+      </role-spec>
+      <fields max-count="1"/>
+      <tooltip>The measure that sizes flows (e.g. count of students)</tooltip>
+    </encoding>
+  </worksheet-extension>
+  <resources>
+    <resource id="name">
+      <text locale="en_US">Sankey (Auto-Contrast)</text>
+    </resource>
+  </resources>
+</manifest>
