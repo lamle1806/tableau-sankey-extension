@@ -73,6 +73,18 @@
     }
     .checkline { display: flex; align-items: center; gap: 6px; margin: 5px 0; }
     .indent { margin-left: 22px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 4px; margin: 6px 0; }
+    .chips button {
+      border: 1px solid #e0e0e0; background: #f6f6f6; border-radius: 4px;
+      padding: 3px 8px; cursor: pointer; font-size: 12px;
+      font-family: 'SF Mono', Menlo, Consolas, monospace; color: #3d3c3c;
+    }
+    .chips button:hover { background: #fce7f1; border-color: #ed017f; }
+    textarea {
+      width: 100%; padding: 6px; border: 1px solid #ccc; border-radius: 4px;
+      font-size: 12.5px; font-family: 'SF Mono', Menlo, Consolas, monospace;
+      resize: vertical; box-sizing: border-box; margin: 2px 0 6px;
+    }
   </style>
 </head>
 <body>
@@ -220,9 +232,11 @@
     <section class="tab" id="tab-labels">
       <fieldset>
         <legend>Node labels</legend>
-        <div class="checkline"><input type="checkbox" id="showNodeLabels"><label for="showNodeLabels">Show node name</label></div>
-        <div class="checkline"><input type="checkbox" id="showNodeValues"><label for="showNodeValues">Show node value</label></div>
-        <div class="checkline"><input type="checkbox" id="showNodePercent"><label for="showNodePercent">Show percentage of total</label></div>
+        <div class="checkline"><input type="checkbox" id="showNodeLabels"><label for="showNodeLabels">Node label</label></div>
+        <p class="hint">Available shortcodes (click to insert):</p>
+        <div class="chips" data-target="nodeLabelTemplate" data-kind="node"></div>
+        <textarea id="nodeLabelTemplate" rows="3" spellcheck="false"></textarea>
+        <p class="hint">Use &lt;strong&gt;&hellip;&lt;/strong&gt; for bold and new lines for multi-line labels.</p>
         <div class="row">
           <label>Label position</label>
           <select id="labelPosition">
@@ -242,15 +256,12 @@
       </fieldset>
       <fieldset>
         <legend>Link labels</legend>
-        <div class="checkline"><input type="checkbox" id="showLinkLabels"><label for="showLinkLabels">Show link values</label></div>
-        <div class="row">
-          <label>Show at</label>
-          <select id="linkLabelEnds">
-            <option value="both">Both ends</option>
-            <option value="source">Source end only</option>
-            <option value="target">Target end only</option>
-          </select>
-        </div>
+        <div class="checkline"><input type="checkbox" id="showFromLinkLabel"><label for="showFromLinkLabel">From link label (source end)</label></div>
+        <div class="chips" data-target="fromLinkTemplate" data-kind="link"></div>
+        <textarea id="fromLinkTemplate" rows="2" spellcheck="false"></textarea>
+        <div class="checkline"><input type="checkbox" id="showToLinkLabel"><label for="showToLinkLabel">To link label (target end)</label></div>
+        <div class="chips" data-target="toLinkTemplate" data-kind="link"></div>
+        <textarea id="toLinkTemplate" rows="2" spellcheck="false"></textarea>
         <div class="row">
           <label>Label color</label>
           <select id="linkLabelColorMode">
@@ -285,8 +296,8 @@
           </select>
         </div>
         <div class="row"><label>Prefix</label><input type="text" id="numberPrefix" placeholder="e.g. $"></div>
-        <div class="row"><label>Suffix (node labels only)</label><input type="text" id="numberSuffix" placeholder="e.g. &nbsp;students"></div>
-        <p class="hint">The suffix is applied to node value labels (e.g. "7 students"); link labels stay as bare numbers, matching the Infotopics layout. Include a leading space in the suffix.</p>
+        <div class="row"><label>Suffix</label><input type="text" id="numberSuffix" placeholder="e.g. &nbsp;pts"></div>
+        <p class="hint">Prefix and suffix decorate every <code>&lt;MeasureValue&gt;</code>. For wording like "7 students", put the word in the label template instead (Labels tab), e.g. <code>&lt;MeasureValue&gt; students</code>.</p>
       </fieldset>
     </section>
 

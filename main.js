@@ -47,13 +47,14 @@
     palette: BRAND_PALETTE,
     colorOverrides: {},         // value (or level|value in unique mode) -> hex
     background: '#FFFFFF',
-    // labels
+    // labels (templates support shortcodes like <DimensionValue> and <strong> tags)
     showNodeLabels: true,
-    showNodeValues: true,
-    showNodePercent: false,
+    nodeLabelTemplate: '<strong><DimensionValue></strong>\n<MeasureValue>',
     labelPosition: 'inside',    // inside | outside
-    showLinkLabels: true,
-    linkLabelEnds: 'both',      // both | source | target
+    showFromLinkLabel: true,
+    fromLinkTemplate: '<MeasureValue>',
+    showToLinkLabel: true,
+    toLinkTemplate: '<MeasureValue>',
     fontSizePct: 100,           // 50-150
     fontFamily: "'Roboto', 'Benton Sans', 'Segoe UI', Arial, sans-serif",
     nodeLabelColorMode: 'auto', // auto | fixed
@@ -68,7 +69,7 @@
     thousands: true,
     displayUnits: 'none',       // none | K | M | auto
     numberPrefix: '',
-    numberSuffix: '',           // applied to node value labels only, e.g. " students"
+    numberSuffix: '',           // numeric decoration on every <MeasureValue>, e.g. " pts"
     // tooltips
     tooltips: true,
     // interactions
@@ -88,6 +89,7 @@
   let config = Object.assign({}, DEFAULTS);
   let rows = [];                // [{levels: [v1, v2, ...], value: n}]
   let levelCaptions = [];       // effective level field names, left to right
+  let measureCaption = '';      // effective measure field name
   let stickyKey = null;         // sticky highlight (click mode)
   let appliedFilters = [];      // [{wsName, fieldName}]
   let renderPending = null;
@@ -147,7 +149,7 @@
     });
   }
 
-  function fmtNumber(v, withSuffix) {
+  function fmtNumber(v) {
     let x = v;
     let unit = '';
     if (config.displayUnits === 'K') { x = v / 1e3; unit = 'K'; }
@@ -161,7 +163,7 @@
       maximumFractionDigits: config.decimals,
       useGrouping: !!config.thousands
     });
-    return config.numberPrefix + s + unit + (withSuffix ? config.numberSuffix : '');
+    return config.numberPrefix + s + unit + config.numberSuffix;
   }
 
   function fmtPercent(share) {
@@ -169,6 +171,51 @@
       minimumFractionDigits: 0,
       maximumFractionDigits: 1
     }) + '%';
+  }
+
+  // template renderer: shortcodes like <DimensionValue>, <strong>/</strong> for bold,
+  // newlines for multi-line labels. Unknown tags render literally.
+  // Returns an array of lines; each line is an array of {text, bold} spans.
+  function renderTemplate(tpl, vars) {
+    return String(tpl == null ? '' : tpl).split('\n').map(function (line) {
+      const spans = [];
+      let bold = false;
+      line.split(/(<\/?strong>|<[^<>]+>)/g).forEach(function (part) {
+        if (!part) return;
+        if (part === '<strong>') { bold = true; return; }
+        if (part === '</strong>') { bold = false; return; }
+        const m = /^<([^<>]+)>$/.exec(part);
+        if (m && Object.prototype.hasOwnProperty.call(vars, m[1])) {
+          spans.push({ text: String(vars[m[1]]), bold: bold });
+          return;
+        }
+        spans.push({ text: part, bold: bold });
+      });
+      return spans;
+    }).filter(function (spans) {
+      return spans.some(function (s) { return s.text.trim() !== ''; });
+    });
+  }
+
+  // append rendered template lines as SVG text elements
+  function drawTemplateText(parent, lines, opts) {
+    // opts: {x, yStart, lineH, anchor, fontSize, fill, halo, haloWidth, className}
+    lines.forEach(function (spans, li) {
+      const t = parent.append('text')
+        .attr('class', opts.className + (opts.halo ? ' halo' : ''))
+        .attr('x', opts.x)
+        .attr('y', opts.yStart + li * opts.lineH)
+        .attr('text-anchor', opts.anchor)
+        .attr('font-size', opts.fontSize + 'px')
+        .attr('fill', opts.fill);
+      if (opts.halo) t.attr('stroke', opts.halo).attr('stroke-width', opts.haloWidth);
+      spans.forEach(function (s) {
+        t.append('tspan')
+          .attr('font-weight', s.bold ? 700 : 400)
+          .text(s.text);
+      });
+      if (opts.datum !== undefined) t.datum(opts.datum);
+    });
   }
 
   function showPlaceholder(msg, showButton) {
@@ -264,6 +311,7 @@
     }
 
     levelCaptions = levels.slice();
+    measureCaption = measure;
     rows = [];
     for (const row of summary.data) {
       const levels = levelIdx.map(i => {
@@ -288,9 +336,9 @@
       ['5th', 'B+D', '2nd', 2], ['5th', 'ULS', '3rd', 2], ['5th', 'EAR', 'EAR', 1], ['5th', 'VCE', '3rd', 1]
     ];
     levelCaptions = ['Current Unit', 'Current Skill', 'Reading Goal'];
+    measureCaption = 'AGG(Number of Students)';
     rows = demo.map(d => ({ levels: [d[0], d[1], d[2]], value: d[3] }));
-    config.numberSuffix = ' students';
-    config.showNodePercent = false;
+    config.nodeLabelTemplate = '<strong><DimensionValue></strong>\n<MeasureValue> students';
     config.showHeaders = true;
   }
 
@@ -482,8 +530,39 @@
       .attr('stroke', config.nodeBorder ? config.nodeBorderColor : 'none')
       .attr('stroke-width', config.nodeBorder ? 1 : 0);
 
-    // ---- node labels
+    // ---- labels
     const lineH = Math.round(baseFont * 1.25);
+    const levelTotals = {};
+    laid.nodes.forEach(function (n) {
+      levelTotals[n.level] = (levelTotals[n.level] || 0) + n.value;
+    });
+
+    function nodeVars(d) {
+      const vars = {
+        MeasureName: measureCaption,
+        MeasureValue: fmtNumber(d.value),
+        DimensionName: levelCaptions[d.level] || '',
+        DimensionValue: d.name,
+        PercentageOfTotal: fmtPercent(d.value / graph.grandTotal),
+        PercentageOfGroup: fmtPercent(d.value / (levelTotals[d.level] || graph.grandTotal))
+      };
+      vars[measureCaption] = vars.MeasureValue; // e.g. <AGG(Number of Students)>
+      return vars;
+    }
+
+    function linkVars(l) {
+      const vars = {
+        MeasureName: measureCaption,
+        MeasureValue: fmtNumber(l.value),
+        SourceName: l.source.name,
+        TargetName: l.target.name,
+        PercentOfSource: fmtPercent(l.value / l.source.value),
+        PercentOfTarget: fmtPercent(l.value / l.target.value),
+        PercentageOfTotal: fmtPercent(l.value / graph.grandTotal)
+      };
+      vars[measureCaption] = vars.MeasureValue;
+      return vars;
+    }
 
     function nodeLabelColor(d) {
       if (config.labelPosition === 'outside') {
@@ -496,19 +575,11 @@
       return autoTextColor(eff, config.nodeLabelColor);
     }
 
-    if (config.showNodeLabels || config.showNodeValues) {
+    if (config.showNodeLabels) {
       nodeSel.each(function (d) {
         const g = d3.select(this);
         const h = d.y1 - d.y0;
-        const lines = [];
-        if (config.showNodeLabels) lines.push({ text: d.name, weight: 700 });
-        if (config.showNodeValues) {
-          let v = fmtNumber(d.value, true);
-          if (config.showNodePercent) v += ' (' + fmtPercent(d.value / graph.grandTotal) + ')';
-          lines.push({ text: v, weight: 400 });
-        } else if (config.showNodePercent) {
-          lines.push({ text: fmtPercent(d.value / graph.grandTotal), weight: 400 });
-        }
+        const lines = renderTemplate(config.nodeLabelTemplate, nodeVars(d));
 
         const inside = config.labelPosition === 'inside';
         const fits = inside ? Math.max(0, Math.floor((h - 4) / lineH)) : lines.length;
@@ -537,33 +608,30 @@
           ? d.y0 + baseFont + 2
           : (d.y0 + d.y1) / 2 - ((shown.length - 1) * lineH) / 2 + baseFont / 2 - 1;
 
-        shown.forEach((line, li) => {
-          g.append('text')
-            .attr('class', 'node-label')
-            .attr('x', x)
-            .attr('y', yStart + li * lineH)
-            .attr('text-anchor', anchor)
-            .attr('font-size', baseFont + 'px')
-            .attr('font-weight', line.weight)
-            .attr('fill', color)
-            .text(line.text);
+        drawTemplateText(g, shown, {
+          x: x, yStart: yStart, lineH: lineH, anchor: anchor,
+          fontSize: baseFont, fill: color, className: 'node-label'
         });
       });
     }
 
     // ---- link end labels
     let linkLabelSel = null;
-    if (config.showLinkLabels) {
+    if (config.showFromLinkLabel || config.showToLinkLabel) {
       const linkLabelG = svg.append('g');
       laid.links.forEach(function (l) {
         if (l.width < baseFont * 0.85) return; // too thin to label legibly
         const ends = [];
-        if (config.linkLabelEnds === 'both' || config.linkLabelEnds === 'source') ends.push('source');
-        if (config.linkLabelEnds === 'both' || config.linkLabelEnds === 'target') ends.push('target');
+        if (config.showFromLinkLabel) ends.push('source');
+        if (config.showToLinkLabel) ends.push('target');
         ends.forEach(function (end) {
           const isSource = end === 'source';
+          const tpl = isSource ? config.fromLinkTemplate : config.toLinkTemplate;
+          const lines = renderTemplate(tpl, linkVars(l));
+          if (!lines.length) return;
           const x = isSource ? l.source.x1 + 4 : l.target.x0 - 4;
-          const y = (isSource ? l.y0 : l.y1) + baseFont / 2 - 1.5;
+          const yMid = (isSource ? l.y0 : l.y1) + baseFont / 2 - 1.5;
+          const yStart = yMid - ((lines.length - 1) * lineH) / 2;
           let fill, halo;
           if (config.linkLabelColorMode === 'fixed') {
             fill = config.linkLabelColor;
@@ -575,20 +643,14 @@
               ? (fill === '#FFFFFF' ? 'rgba(0,0,0,0.45)' : 'rgba(255,255,255,0.8)')
               : null;
           }
-          const t = linkLabelG.append('text')
-            .datum(l)
-            .attr('opacity', 1)
-            .attr('class', 'link-label' + (halo ? ' halo' : ''))
-            .attr('x', x)
-            .attr('y', y)
-            .attr('text-anchor', isSource ? 'start' : 'end')
-            .attr('font-size', baseFont + 'px')
-            .attr('fill', fill)
-            .text(fmtNumber(l.value, false));
-          if (halo) t.attr('stroke', halo).attr('stroke-width', 2.5 * fontScale);
+          drawTemplateText(linkLabelG, lines, {
+            x: x, yStart: yStart, lineH: lineH, anchor: isSource ? 'start' : 'end',
+            fontSize: baseFont, fill: fill, halo: halo, haloWidth: 2.5 * fontScale,
+            className: 'link-label', datum: l
+          });
         });
       });
-      linkLabelSel = linkLabelG.selectAll('text');
+      linkLabelSel = linkLabelG.selectAll('text').attr('opacity', 1);
     }
 
     // ---- level headers
@@ -661,11 +723,11 @@
       const cap = levelCaptions[d.level] || ('Level ' + (d.level + 1));
       return '<div class="tt-title">' + escapeHtml(d.name) + '</div>' +
         escapeHtml(cap) + '<br>' +
-        fmtNumber(d.value, true) + ' &middot; ' + fmtPercent(d.value / graph.grandTotal) + ' of total';
+        fmtNumber(d.value) + ' &middot; ' + fmtPercent(d.value / graph.grandTotal) + ' of total';
     }
     function linkTipHtml(d) {
       return '<div class="tt-title">' + escapeHtml(d.source.name) + ' &rarr; ' + escapeHtml(d.target.name) + '</div>' +
-        fmtNumber(d.value, true) + ' &middot; ' + fmtPercent(d.value / graph.grandTotal) + ' of total';
+        fmtNumber(d.value) + ' &middot; ' + fmtPercent(d.value / graph.grandTotal) + ' of total';
     }
     function escapeHtml(s) {
       return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));

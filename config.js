@@ -15,8 +15,11 @@
     linkOpacity: 55, linkColorMode: 'gradient', linkNeutralColor: '#BBBBBB',
     colorMode: 'byValue', palette: BRAND_PALETTE.slice(), colorOverrides: {},
     background: '#FFFFFF',
-    showNodeLabels: true, showNodeValues: true, showNodePercent: false,
-    labelPosition: 'inside', showLinkLabels: true, linkLabelEnds: 'both',
+    showNodeLabels: true,
+    nodeLabelTemplate: '<strong><DimensionValue></strong>\n<MeasureValue>',
+    labelPosition: 'inside',
+    showFromLinkLabel: true, fromLinkTemplate: '<MeasureValue>',
+    showToLinkLabel: true, toLinkTemplate: '<MeasureValue>',
     fontSizePct: 100,
     fontFamily: "'Roboto', 'Benton Sans', 'Segoe UI', Arial, sans-serif",
     nodeLabelColorMode: 'auto', nodeLabelColor: '#3D3C3C',
@@ -276,17 +279,48 @@
     $('action-param-opts').style.display = config.actionType === 'parameter' ? '' : 'none';
   }
 
+  // ------------------------------------------------------------ label shortcode chips
+  const NODE_SHORTCODES = ['MeasureName', 'MeasureValue', 'DimensionName', 'DimensionValue',
+    'PercentageOfTotal', 'PercentageOfGroup'];
+  const LINK_SHORTCODES = ['MeasureName', 'MeasureValue', 'PercentOfSource', 'SourceName',
+    'PercentOfTarget', 'TargetName', 'PercentageOfTotal'];
+
+  function renderChips() {
+    document.querySelectorAll('.chips').forEach(box => {
+      box.innerHTML = '';
+      const codes = (box.dataset.kind === 'node' ? NODE_SHORTCODES : LINK_SHORTCODES).slice();
+      if (config.measure) codes.push(config.measure); // e.g. <AGG(Number of Students)>
+      const ta = $(box.dataset.target);
+      codes.forEach(code => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.textContent = '<' + code + '>';
+        btn.addEventListener('click', () => {
+          const token = '<' + code + '>';
+          const start = ta.selectionStart != null ? ta.selectionStart : ta.value.length;
+          const end = ta.selectionEnd != null ? ta.selectionEnd : ta.value.length;
+          ta.value = ta.value.slice(0, start) + token + ta.value.slice(end);
+          config[box.dataset.target] = ta.value;
+          ta.focus();
+          ta.selectionStart = ta.selectionEnd = start + token.length;
+        });
+        box.appendChild(btn);
+      });
+    });
+  }
+
   // ------------------------------------------------------------ simple bindings
   const RANGES = ['nodeWidth', 'nodePadding', 'nodeOpacity', 'linkOpacity', 'fontSizePct'];
   const SELECTS = ['nodeAlign', 'sortNodes', 'sortLinks', 'colorMode', 'linkColorMode',
-    'labelPosition', 'nodeLabelColorMode', 'linkLabelColorMode', 'linkLabelEnds',
+    'labelPosition', 'nodeLabelColorMode', 'linkLabelColorMode',
     'displayUnits', 'highlightMode', 'actionType'];
-  const CHECKS = ['hideNulls', 'nodeBorder', 'allowReorder', 'showNodeLabels', 'showNodeValues',
-    'showNodePercent', 'showLinkLabels', 'linkLabelHalo', 'showHeaders', 'thousands',
+  const CHECKS = ['hideNulls', 'nodeBorder', 'allowReorder', 'showNodeLabels',
+    'showFromLinkLabel', 'showToLinkLabel', 'linkLabelHalo', 'showHeaders', 'thousands',
     'tooltips', 'animate', 'clearOnDeselect'];
   const COLORS = ['nodeBorderColor', 'linkNeutralColor', 'background', 'nodeLabelColor',
     'linkLabelColor', 'headerColor'];
-  const TEXTS = ['fontFamily', 'numberPrefix', 'numberSuffix'];
+  const TEXTS = ['fontFamily', 'numberPrefix', 'numberSuffix',
+    'nodeLabelTemplate', 'fromLinkTemplate', 'toLinkTemplate'];
   const NUMBERS = ['decimals'];
 
   function pushToUi() {
@@ -320,7 +354,7 @@
       renderLevels(); renderMeasures(); renderOverrides(); renderActionTargets();
     });
     $('add-level').addEventListener('click', () => { config.levels.push(''); renderLevels(); });
-    $('measure').addEventListener('change', () => { config.measure = $('measure').value; });
+    $('measure').addEventListener('change', () => { config.measure = $('measure').value; renderChips(); });
     $('add-color').addEventListener('click', () => { config.palette.push('#999999'); renderPalette(); });
     $('reset-palette').addEventListener('click', () => { config.palette = BRAND_PALETTE.slice(); renderPalette(); });
     $('clear-order').addEventListener('click', () => { config.customOrder = {}; status('Manual node order cleared.'); });
@@ -369,6 +403,7 @@
     renderOverrides();
     renderActionTargets();
     renderParameters();
+    renderChips();
     pushToUi();
     wireInputs();
   }).catch(e => {
