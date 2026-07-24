@@ -21,6 +21,14 @@
     <div id="chart"></div>
     <div id="tooltip" class="hidden"></div>
   </div>
-  <script src="main.js"></script>
+  <!-- load main.js with a per-load cache-buster so chart code is never stale
+       (GitHub Pages serves Cache-Control: max-age=600) -->
+  <script>
+    (function () {
+      var s = document.createElement('script');
+      s.src = 'main.js?t=' + Date.now();
+      document.body.appendChild(s);
+    })();
+  </script>
 </body>
 </html>
