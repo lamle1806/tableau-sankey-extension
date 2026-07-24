@@ -72,6 +72,8 @@
     numberSuffix: '',           // numeric decoration on every <MeasureValue>, e.g. " pts"
     // tooltips
     tooltips: true,
+    nodeTooltipTemplate: '<DimensionName>: <strong><DimensionValue></strong>\n<MeasureName>: <MeasureValue>',
+    linkTooltipTemplate: '<MeasureName>: <MeasureValue>\n<PercentOfSource> of <SourceName> to <PercentOfTarget> of <TargetName>',
     // interactions
     highlightMode: 'hover',     // hover | click | off
     animate: true,
@@ -702,7 +704,7 @@
 
     // ---- tooltips
     function showTip(html, evt) {
-      if (!config.tooltips) return;
+      if (!config.tooltips || !html) return;
       tooltipEl.innerHTML = html;
       tooltipEl.classList.remove('hidden');
       moveTip(evt);
@@ -719,16 +721,13 @@
     }
     function hideTip() { tooltipEl.classList.add('hidden'); }
 
-    function nodeTipHtml(d) {
-      const cap = levelCaptions[d.level] || ('Level ' + (d.level + 1));
-      return '<div class="tt-title">' + escapeHtml(d.name) + '</div>' +
-        escapeHtml(cap) + '<br>' +
-        fmtNumber(d.value) + ' &middot; ' + fmtPercent(d.value / graph.grandTotal) + ' of total';
+    function templateHtml(tpl, vars) {
+      return renderTemplate(tpl, vars).map(spans =>
+        spans.map(s => s.bold ? '<strong>' + escapeHtml(s.text) + '</strong>' : escapeHtml(s.text)).join('')
+      ).join('<br>');
     }
-    function linkTipHtml(d) {
-      return '<div class="tt-title">' + escapeHtml(d.source.name) + ' &rarr; ' + escapeHtml(d.target.name) + '</div>' +
-        fmtNumber(d.value) + ' &middot; ' + fmtPercent(d.value / graph.grandTotal) + ' of total';
-    }
+    function nodeTipHtml(d) { return templateHtml(config.nodeTooltipTemplate, nodeVars(d)); }
+    function linkTipHtml(d) { return templateHtml(config.linkTooltipTemplate, linkVars(d)); }
     function escapeHtml(s) {
       return String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
     }

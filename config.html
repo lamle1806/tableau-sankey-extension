@@ -304,7 +304,7 @@
     <!-- INTERACTIONS -->
     <section class="tab" id="tab-interactions">
       <fieldset>
-        <legend>Highlighting &amp; tooltips</legend>
+        <legend>Highlighting</legend>
         <div class="row">
           <label>Highlight mode</label>
           <select id="highlightMode">
@@ -313,8 +313,20 @@
             <option value="off">Off</option>
           </select>
         </div>
-        <div class="checkline"><input type="checkbox" id="tooltips"><label for="tooltips">Show tooltips</label></div>
         <div class="checkline"><input type="checkbox" id="animate"><label for="animate">Animate transitions</label></div>
+      </fieldset>
+      <fieldset>
+        <legend>Tooltips</legend>
+        <div class="checkline"><input type="checkbox" id="tooltips"><label for="tooltips">Enable tooltips</label></div>
+        <div class="row"><label style="flex:0 0 auto; font-weight:700">Node tooltip</label></div>
+        <p class="hint">Available shortcodes (click to insert):</p>
+        <div class="chips" data-target="nodeTooltipTemplate" data-kind="node"></div>
+        <textarea id="nodeTooltipTemplate" rows="3" spellcheck="false"></textarea>
+        <div class="row"><label style="flex:0 0 auto; font-weight:700">Link tooltip</label></div>
+        <p class="hint">Available shortcodes (click to insert):</p>
+        <div class="chips" data-target="linkTooltipTemplate" data-kind="link"></div>
+        <textarea id="linkTooltipTemplate" rows="3" spellcheck="false"></textarea>
+        <p class="hint">Templates support &lt;strong&gt;&hellip;&lt;/strong&gt; and new lines.</p>
       </fieldset>
       <fieldset>
         <legend>Dashboard actions (on click)</legend>

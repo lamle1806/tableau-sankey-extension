@@ -27,7 +27,10 @@
     showHeaders: false, headerColor: '#3D3C3C',
     decimals: 0, thousands: true, displayUnits: 'none',
     numberPrefix: '', numberSuffix: '',
-    tooltips: true, highlightMode: 'hover', animate: true,
+    tooltips: true,
+    nodeTooltipTemplate: '<DimensionName>: <strong><DimensionValue></strong>\n<MeasureName>: <MeasureValue>',
+    linkTooltipTemplate: '<MeasureName>: <MeasureValue>\n<PercentOfSource> of <SourceName> to <PercentOfTarget> of <TargetName>',
+    highlightMode: 'hover', animate: true,
     actionType: 'none', actionTargets: [], actionParameter: '',
     clearOnDeselect: true, customOrder: {}
   };
@@ -320,7 +323,8 @@
   const COLORS = ['nodeBorderColor', 'linkNeutralColor', 'background', 'nodeLabelColor',
     'linkLabelColor', 'headerColor'];
   const TEXTS = ['fontFamily', 'numberPrefix', 'numberSuffix',
-    'nodeLabelTemplate', 'fromLinkTemplate', 'toLinkTemplate'];
+    'nodeLabelTemplate', 'fromLinkTemplate', 'toLinkTemplate',
+    'nodeTooltipTemplate', 'linkTooltipTemplate'];
   const NUMBERS = ['decimals'];
 
   function pushToUi() {
