@@ -36,8 +36,9 @@
     nodeOpacity: 100,           // 0-100
     nodeBorder: false,
     nodeBorderColor: '#3D3C3C',
-    sortNodes: 'auto',          // auto | desc | asc | alpha
-    sortLinks: 'auto',          // auto | desc | asc
+    sortNodes: 'auto',          // auto | data | custom | desc | asc | alpha
+    sortLinks: 'auto',          // auto | data | desc | asc
+    valueOrder: {},             // fieldName -> ordered array of values (custom sort)
     allowReorder: false,        // drag nodes vertically
     // links
     linkOpacity: 55,            // 0-100
@@ -453,7 +454,16 @@
         return 0;
       });
     } else if (config.sortNodes === 'data') {
-      sankey.nodeSort(null); // input order: follows Tableau's field sort (incl. manual)
+      sankey.nodeSort(null); // input order: follows the summary-data row order
+    } else if (config.sortNodes === 'custom') {
+      // order each level by the user-defined value list; unlisted values keep data order
+      sankey.nodeSort((a, b) => {
+        const order = (config.valueOrder && config.valueOrder[levelCaptions[a.level]]) || [];
+        const ia = order.indexOf(a.name), ib = order.indexOf(b.name);
+        const ra = ia < 0 ? Infinity : ia, rb = ib < 0 ? Infinity : ib;
+        if (ra === rb) return 0;
+        return ra - rb;
+      });
     } else if (config.sortNodes === 'desc') {
       sankey.nodeSort((a, b) => b.value - a.value);
     } else if (config.sortNodes === 'asc') {

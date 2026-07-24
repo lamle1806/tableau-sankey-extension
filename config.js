@@ -11,7 +11,7 @@
     worksheet: '', levels: [], measure: '', hideNulls: true,
     nodeWidth: 90, nodePadding: 24, nodeHPadding: 0, nodeAlign: 'justify', nodeOpacity: 100,
     nodeBorder: false, nodeBorderColor: '#3D3C3C',
-    sortNodes: 'auto', sortLinks: 'auto', allowReorder: false,
+    sortNodes: 'auto', sortLinks: 'auto', valueOrder: {}, allowReorder: false,
     linkOpacity: 55, linkColorMode: 'gradient', linkNeutralColor: '#BBBBBB',
     colorMode: 'byValue', palette: BRAND_PALETTE.slice(), colorOverrides: {},
     background: '#FFFFFF',
@@ -141,7 +141,7 @@
       const sel = document.createElement('select');
       option(sel, '', '— choose a dimension —', !lvl);
       dimensions.forEach(d => option(sel, d, d, d === lvl));
-      sel.addEventListener('change', () => { config.levels[i] = sel.value; renderOverrides(); });
+      sel.addEventListener('change', () => { config.levels[i] = sel.value; renderOverrides(); renderValueOrder(); });
       const up = document.createElement('button');
       up.className = 'small'; up.textContent = '↑'; up.disabled = i === 0;
       up.addEventListener('click', () => {
@@ -155,6 +155,7 @@
       row.append(lab, sel, up, del);
       list.appendChild(row);
     });
+    renderValueOrder();
   }
 
   function renderMeasures() {
@@ -277,6 +278,73 @@
     if (config.actionType === 'filter') config.actionType = 'none';
   }
 
+  // ------------------------------------------------------------ custom node order editor
+  // reconcile a saved order with the current distinct values: keep saved order for
+  // values still present, append any new values, drop values that disappeared
+  function reconcileOrder(field) {
+    const values = distinctValues[field] || [];
+    const saved = (config.valueOrder && config.valueOrder[field]) || [];
+    const present = new Set(values);
+    const ordered = saved.filter(v => present.has(v));
+    const seen = new Set(ordered);
+    values.forEach(v => { if (!seen.has(v)) ordered.push(v); });
+    config.valueOrder = config.valueOrder || {};
+    config.valueOrder[field] = ordered;
+    return ordered;
+  }
+
+  function renderValueOrder() {
+    const wrap = $('value-order-wrap');
+    wrap.style.display = config.sortNodes === 'custom' ? '' : 'none';
+    if (config.sortNodes !== 'custom') return;
+    const box = $('value-order-list');
+    box.innerHTML = '';
+    const levels = config.levels.filter(Boolean);
+    if (!levels.length) {
+      box.innerHTML = '<p class="hint">Choose level dimensions on the Data tab first.</p>';
+      return;
+    }
+    levels.forEach(field => {
+      const order = reconcileOrder(field);
+      const lvl = document.createElement('div');
+      lvl.className = 'vo-level';
+      const cap = document.createElement('div');
+      cap.className = 'vo-field';
+      cap.textContent = field;
+      lvl.appendChild(cap);
+      if (!order.length) {
+        const p = document.createElement('p');
+        p.className = 'hint';
+        p.textContent = 'No values found for this field yet.';
+        lvl.appendChild(p);
+      }
+      order.forEach((val, i) => {
+        const item = document.createElement('div');
+        item.className = 'vo-item';
+        const up = document.createElement('button');
+        up.textContent = '↑'; up.disabled = i === 0;
+        up.addEventListener('click', () => {
+          const a = config.valueOrder[field];
+          [a[i - 1], a[i]] = [a[i], a[i - 1]];
+          renderValueOrder();
+        });
+        const down = document.createElement('button');
+        down.textContent = '↓'; down.disabled = i === order.length - 1;
+        down.addEventListener('click', () => {
+          const a = config.valueOrder[field];
+          [a[i + 1], a[i]] = [a[i], a[i + 1]];
+          renderValueOrder();
+        });
+        const name = document.createElement('span');
+        name.className = 'vo-name';
+        name.textContent = val;
+        item.append(up, down, name);
+        lvl.appendChild(item);
+      });
+      box.appendChild(lvl);
+    });
+  }
+
   function toggleActionOpts() {
     $('action-filter-opts').style.display = config.actionType === 'filter' && !VIZ_MODE ? '' : 'none';
     $('action-param-opts').style.display = config.actionType === 'parameter' ? '' : 'none';
@@ -346,6 +414,7 @@
       config[k] = $(k).value;
       if (k === 'colorMode') renderOverrides();
       if (k === 'actionType') toggleActionOpts();
+      if (k === 'sortNodes') renderValueOrder();
     }));
     CHECKS.forEach(k => $(k).addEventListener('change', () => { config[k] = $(k).checked; }));
     COLORS.forEach(k => $(k).addEventListener('input', () => { config[k] = $(k).value; }));
@@ -409,6 +478,7 @@
     renderParameters();
     renderChips();
     pushToUi();
+    renderValueOrder();
     wireInputs();
   }).catch(e => {
     status('Failed to initialize dialog: ' + e.message);
