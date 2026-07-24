@@ -31,6 +31,7 @@
     // layout / nodes
     nodeWidth: 90,
     nodePadding: 24,
+    nodeHPadding: 0,            // horizontal gap between nodes and link ends
     nodeAlign: 'justify',       // justify | left | right | center
     nodeOpacity: 100,           // 0-100
     nodeBorder: false,
@@ -495,12 +496,17 @@
       return end === 'target' ? colorOf(link.target) : colorOf(link.source); // gradient
     }
 
+    const hpad = Math.max(0, +config.nodeHPadding || 0);
+    const linkGen = d3.sankeyLinkHorizontal()
+      .source(d => [d.source.x1 + hpad, d.y0])
+      .target(d => [d.target.x0 - hpad, d.y1]);
+
     const linkG = svg.append('g').attr('fill', 'none');
     const linkSel = linkG.selectAll('path')
       .data(laid.links)
       .join('path')
       .attr('class', 'sankey-link')
-      .attr('d', d3.sankeyLinkHorizontal())
+      .attr('d', linkGen)
       .attr('stroke-width', d => Math.max(1, d.width))
       .attr('stroke-opacity', linkOpacity)
       .attr('stroke', (d, i) => {
@@ -509,7 +515,7 @@
           const grad = defs.append('linearGradient')
             .attr('id', gid)
             .attr('gradientUnits', 'userSpaceOnUse')
-            .attr('x1', d.source.x1).attr('x2', d.target.x0);
+            .attr('x1', d.source.x1 + hpad).attr('x2', d.target.x0 - hpad);
           grad.append('stop').attr('offset', '0%').attr('stop-color', colorOf(d.source));
           grad.append('stop').attr('offset', '100%').attr('stop-color', colorOf(d.target));
           return 'url(#' + gid + ')';
@@ -634,7 +640,7 @@
           const tpl = isSource ? config.fromLinkTemplate : config.toLinkTemplate;
           const lines = renderTemplate(tpl, linkVars(l));
           if (!lines.length) return;
-          const x = isSource ? l.source.x1 + 4 : l.target.x0 - 4;
+          const x = isSource ? l.source.x1 + hpad + 4 : l.target.x0 - hpad - 4;
           const yMid = (isSource ? l.y0 : l.y1) + baseFont / 2 - 1.5;
           const yStart = yMid - ((lines.length - 1) * lineH) / 2;
           let fill, halo;
@@ -851,7 +857,7 @@
           d.y1 = d.y0 + h;
           d3.select(this).select('rect').attr('y', d.y0).attr('height', Math.max(1, h));
           sankey.update(laid);
-          linkSel.attr('d', d3.sankeyLinkHorizontal());
+          linkSel.attr('d', linkGen);
         })
         .on('end', function () {
           // persist per-level vertical order, then re-render cleanly

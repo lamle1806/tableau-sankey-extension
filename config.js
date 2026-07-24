@@ -9,7 +9,7 @@
 
   const DEFAULTS = {
     worksheet: '', levels: [], measure: '', hideNulls: true,
-    nodeWidth: 18, nodePadding: 24, nodeAlign: 'justify', nodeOpacity: 100,
+    nodeWidth: 90, nodePadding: 24, nodeHPadding: 0, nodeAlign: 'justify', nodeOpacity: 100,
     nodeBorder: false, nodeBorderColor: '#3D3C3C',
     sortNodes: 'auto', sortLinks: 'auto', allowReorder: false,
     linkOpacity: 55, linkColorMode: 'gradient', linkNeutralColor: '#BBBBBB',
@@ -313,7 +313,7 @@
   }
 
   // ------------------------------------------------------------ simple bindings
-  const RANGES = ['nodeWidth', 'nodePadding', 'nodeOpacity', 'linkOpacity', 'fontSizePct'];
+  const RANGES = ['nodeWidth', 'nodePadding', 'nodeHPadding', 'nodeOpacity', 'linkOpacity', 'fontSizePct'];
   const SELECTS = ['nodeAlign', 'sortNodes', 'sortLinks', 'colorMode', 'linkColorMode',
     'labelPosition', 'nodeLabelColorMode', 'linkLabelColorMode',
     'displayUnits', 'highlightMode', 'actionType'];
