@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Sankey (Auto-Contrast)</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="styles.css">
+  <script src="lib/d3.v7.min.js"></script>
+  <script src="lib/d3-sankey.min.js"></script>
+  <script src="lib/tableau.extensions.1.latest.min.js"></script>
+</head>
+<body>
+  <div id="root">
+    <div id="placeholder" class="hidden">
+      <div class="ph-card">
+        <div class="ph-logo">Sankey <span>(Auto-Contrast)</span></div>
+        <p id="ph-message">Open the configuration to choose a worksheet, level dimensions, and a measure.</p>
+        <button id="ph-configure" class="hidden">Configure&hellip;</button>
+      </div>
+    </div>
+    <div id="chart"></div>
+    <div id="tooltip" class="hidden"></div>
+  </div>
+  <script src="main.js"></script>
+</body>
+</html>

@@ -1,0 +1,119 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  font-family: 'Roboto', 'Benton Sans', 'Segoe UI', Arial, sans-serif;
+}
+
+#root {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+#chart {
+  width: 100%;
+  height: 100%;
+}
+
+#chart svg {
+  display: block;
+}
+
+.hidden {
+  display: none !important;
+}
+
+/* placeholder shown before the extension is configured */
+#placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  z-index: 5;
+}
+
+.ph-card {
+  text-align: center;
+  max-width: 420px;
+  padding: 24px;
+  color: #3d3c3c;
+}
+
+.ph-logo {
+  font-size: 20px;
+  font-weight: 900;
+}
+
+.ph-logo span {
+  color: #ed017f;
+  font-weight: 400;
+}
+
+.ph-card p {
+  font-size: 13px;
+  color: #666;
+}
+
+#ph-configure {
+  background: #ed017f;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 20px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+#ph-configure:hover {
+  background: #c90070;
+}
+
+/* tooltip */
+#tooltip {
+  position: absolute;
+  pointer-events: none;
+  background: rgba(39, 0, 75, 0.95);
+  color: #fff;
+  border-radius: 4px;
+  padding: 8px 10px;
+  font-size: 12px;
+  line-height: 1.5;
+  max-width: 280px;
+  z-index: 10;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+}
+
+#tooltip .tt-title {
+  font-weight: 700;
+}
+
+/* sankey marks */
+.sankey-node rect {
+  cursor: pointer;
+}
+
+.sankey-node.draggable rect {
+  cursor: grab;
+}
+
+.sankey-link {
+  cursor: pointer;
+}
+
+text.node-label,
+text.link-label,
+text.level-header {
+  pointer-events: none;
+  user-select: none;
+}
+
+text.halo {
+  paint-order: stroke;
+  stroke-linejoin: round;
+}

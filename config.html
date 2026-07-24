@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Sankey (Auto-Contrast) — Configuration</title>
+  <script src="lib/tableau.extensions.1.latest.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0; height: 100%;
+      font-family: 'Roboto', 'Benton Sans', 'Segoe UI', Arial, sans-serif;
+      font-size: 13px; color: #3d3c3c; background: #fff;
+    }
+    #app { display: flex; flex-direction: column; height: 100%; }
+    header {
+      padding: 12px 16px 0;
+      border-bottom: 1px solid #eaeaea;
+    }
+    header h1 { font-size: 15px; margin: 0 0 10px; font-weight: 900; }
+    header h1 span { color: #ed017f; font-weight: 400; }
+    nav { display: flex; gap: 2px; }
+    nav button {
+      border: none; background: none; padding: 8px 12px; cursor: pointer;
+      font-size: 13px; color: #666; border-bottom: 3px solid transparent;
+      font-family: inherit;
+    }
+    nav button.active { color: #ed017f; border-bottom-color: #ed017f; font-weight: 700; }
+    main { flex: 1; overflow-y: auto; padding: 14px 16px; }
+    .tab { display: none; }
+    .tab.active { display: block; }
+    fieldset {
+      border: 1px solid #eaeaea; border-radius: 6px;
+      margin: 0 0 14px; padding: 10px 12px;
+    }
+    legend { font-weight: 700; font-size: 12px; padding: 0 4px; color: #27004b; }
+    .row {
+      display: flex; align-items: center; gap: 8px; margin: 7px 0;
+      flex-wrap: wrap;
+    }
+    .row label:first-child { flex: 0 0 150px; }
+    select, input[type=text], input[type=number] {
+      padding: 5px 6px; border: 1px solid #ccc; border-radius: 4px;
+      font-size: 13px; font-family: inherit; min-width: 0;
+    }
+    select { max-width: 250px; }
+    input[type=number] { width: 70px; }
+    input[type=color] { width: 34px; height: 26px; padding: 1px; border: 1px solid #ccc; border-radius: 4px; background: #fff; cursor: pointer; }
+    input[type=range] { width: 140px; }
+    .hint { color: #999; font-size: 11.5px; margin: 3px 0 0; }
+    .levels-list .row select { flex: 1; }
+    button.small {
+      border: 1px solid #ccc; background: #fff; border-radius: 4px;
+      padding: 4px 10px; cursor: pointer; font-size: 12px; font-family: inherit;
+    }
+    button.small:hover { background: #f6f6f6; }
+    button.danger { color: #b00020; border-color: #e0b4bc; }
+    .palette-list .row, .override-list .row { margin: 4px 0; }
+    .override-list { max-height: 220px; overflow-y: auto; }
+    .value-chip { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    footer {
+      border-top: 1px solid #eaeaea; padding: 10px 16px;
+      display: flex; justify-content: flex-end; gap: 8px; align-items: center;
+    }
+    #status { margin-right: auto; color: #999; font-size: 12px; }
+    footer .primary {
+      background: #ed017f; color: #fff; border: none; border-radius: 4px;
+      padding: 8px 22px; font-size: 13px; font-weight: 500; cursor: pointer; font-family: inherit;
+    }
+    footer .primary:hover { background: #c90070; }
+    footer .secondary {
+      background: #fff; color: #3d3c3c; border: 1px solid #ccc; border-radius: 4px;
+      padding: 8px 16px; font-size: 13px; cursor: pointer; font-family: inherit;
+    }
+    .checkline { display: flex; align-items: center; gap: 6px; margin: 5px 0; }
+    .indent { margin-left: 22px; }
+  </style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Sankey <span>(Auto-Contrast)</span></h1>
+    <nav id="tabs">
+      <button data-tab="data" class="active">Data</button>
+      <button data-tab="layout">Layout</button>
+      <button data-tab="colors">Colors</button>
+      <button data-tab="labels">Labels</button>
+      <button data-tab="format">Format</button>
+      <button data-tab="interactions">Interactions</button>
+    </nav>
+  </header>
+  <main>
+    <!-- DATA -->
+    <section class="tab active" id="tab-data">
+      <fieldset>
+        <legend>Source</legend>
+        <div class="row">
+          <label>Worksheet</label>
+          <select id="worksheet"></select>
+        </div>
+        <p class="hint">The worksheet must be on this dashboard. It can be hidden behind another object. Put each level dimension and the measure on the worksheet (e.g. Rows/Detail).</p>
+      </fieldset>
+      <fieldset>
+        <legend>Levels (order = left to right)</legend>
+        <div class="levels-list" id="levels-list"></div>
+        <div class="row">
+          <button class="small" id="add-level">+ Add level</button>
+        </div>
+        <p class="hint">Pick at least two dimensions. Three levels reproduces the Current Unit &rarr; Reading Goal layout.</p>
+      </fieldset>
+      <fieldset>
+        <legend>Measure</legend>
+        <div class="row">
+          <label>Flow size</label>
+          <select id="measure"></select>
+        </div>
+        <div class="checkline">
+          <input type="checkbox" id="hideNulls"><label for="hideNulls">Hide rows with null level values</label>
+        </div>
+      </fieldset>
+    </section>
+
+    <!-- LAYOUT -->
+    <section class="tab" id="tab-layout">
+      <fieldset>
+        <legend>Nodes</legend>
+        <div class="row"><label>Node width</label><input type="range" id="nodeWidth" min="4" max="160" step="1"><span id="nodeWidth-val"></span></div>
+        <div class="row"><label>Vertical node padding</label><input type="range" id="nodePadding" min="0" max="80" step="1"><span id="nodePadding-val"></span></div>
+        <div class="row"><label>Node opacity</label><input type="range" id="nodeOpacity" min="10" max="100" step="5"><span id="nodeOpacity-val"></span></div>
+        <div class="row">
+          <label>Layout mode</label>
+          <select id="nodeAlign">
+            <option value="justify">Justify</option>
+            <option value="left">Left</option>
+            <option value="right">Right</option>
+            <option value="center">Center</option>
+          </select>
+        </div>
+        <div class="checkline">
+          <input type="checkbox" id="nodeBorder"><label for="nodeBorder">Node border</label>
+          <input type="color" id="nodeBorderColor">
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>Links</legend>
+        <div class="row"><label>Link opacity</label><input type="range" id="linkOpacity" min="10" max="100" step="5"><span id="linkOpacity-val"></span></div>
+      </fieldset>
+      <fieldset>
+        <legend>Sorting</legend>
+        <div class="row">
+          <label>Sort nodes by</label>
+          <select id="sortNodes">
+            <option value="auto">Automatic</option>
+            <option value="desc">Value, high to low</option>
+            <option value="asc">Value, low to high</option>
+            <option value="alpha">Alphabetical</option>
+          </select>
+        </div>
+        <div class="row">
+          <label>Sort links by</label>
+          <select id="sortLinks">
+            <option value="auto">Automatic</option>
+            <option value="desc">High to low</option>
+            <option value="asc">Low to high</option>
+          </select>
+        </div>
+        <div class="checkline">
+          <input type="checkbox" id="allowReorder"><label for="allowReorder">Allow manual node reordering (drag nodes vertically)</label>
+        </div>
+        <div class="row indent">
+          <button class="small danger" id="clear-order">Reset manual order</button>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>Background</legend>
+        <div class="row"><label>Background color</label><input type="color" id="background"></div>
+      </fieldset>
+    </section>
+
+    <!-- COLORS -->
+    <section class="tab" id="tab-colors">
+      <fieldset>
+        <legend>Node colors</legend>
+        <div class="row">
+          <label>Color mode</label>
+          <select id="colorMode">
+            <option value="byValue">Same values share the same color</option>
+            <option value="unique">Every node gets a unique color</option>
+          </select>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>Palette (assigned in order of appearance)</legend>
+        <div class="palette-list" id="palette-list"></div>
+        <div class="row">
+          <button class="small" id="add-color">+ Add color</button>
+          <button class="small" id="reset-palette">Reset to Ignite brand palette</button>
+        </div>
+      </fieldset>
+      <fieldset>
+        <legend>Per-value overrides</legend>
+        <div class="override-list" id="override-list"><p class="hint">Pick a worksheet and levels first.</p></div>
+      </fieldset>
+      <fieldset>
+        <legend>Link colors</legend>
+        <div class="row">
+          <label>Link color mode</label>
+          <select id="linkColorMode">
+            <option value="gradient">Input &rarr; Output (gradient)</option>
+            <option value="input">Input (source node color)</option>
+            <option value="output">Output (target node color)</option>
+            <option value="none">No color (neutral)</option>
+          </select>
+        </div>
+        <div class="row"><label>Neutral link color</label><input type="color" id="linkNeutralColor"></div>
+      </fieldset>
+    </section>
+
+    <!-- LABELS -->
+    <section class="tab" id="tab-labels">
+      <fieldset>
+        <legend>Node labels</legend>
+        <div class="checkline"><input type="checkbox" id="showNodeLabels"><label for="showNodeLabels">Show node name</label></div>
+        <div class="checkline"><input type="checkbox" id="showNodeValues"><label for="showNodeValues">Show node value</label></div>
+        <div class="checkline"><input type="checkbox" id="showNodePercent"><label for="showNodePercent">Show percentage of total</label></div>
+        <div class="row">
+          <label>Label position</label>
+          <select id="labelPosition">
+            <option value="inside">Inside nodes</option>
+            <option value="outside">Outside nodes</option>
+          </select>
+        </div>
+        <div class="row">
+          <label>Label color</label>
+          <select id="nodeLabelColorMode">
+            <option value="auto">Auto contrast (recommended)</option>
+            <option value="fixed">Fixed color</option>
+          </select>
+          <input type="color" id="nodeLabelColor">
+        </div>
+        <p class="hint">Auto contrast picks white or the color at right per node, whichever has the higher WCAG contrast ratio against the node's rendered color.</p>
+      </fieldset>
+      <fieldset>
+        <legend>Link labels</legend>
+        <div class="checkline"><input type="checkbox" id="showLinkLabels"><label for="showLinkLabels">Show link values</label></div>
+        <div class="row">
+          <label>Show at</label>
+          <select id="linkLabelEnds">
+            <option value="both">Both ends</option>
+            <option value="source">Source end only</option>
+            <option value="target">Target end only</option>
+          </select>
+        </div>
+        <div class="row">
+          <label>Label color</label>
+          <select id="linkLabelColorMode">
+            <option value="auto">Auto contrast (recommended)</option>
+            <option value="fixed">Fixed color</option>
+          </select>
+          <input type="color" id="linkLabelColor">
+        </div>
+        <div class="checkline"><input type="checkbox" id="linkLabelHalo"><label for="linkLabelHalo">Text halo (keeps labels readable on pale links)</label></div>
+      </fieldset>
+      <fieldset>
+        <legend>Headers &amp; font</legend>
+        <div class="checkline"><input type="checkbox" id="showHeaders"><label for="showHeaders">Show level headers</label><input type="color" id="headerColor"></div>
+        <div class="row"><label>Font size</label><input type="range" id="fontSizePct" min="50" max="150" step="5"><span id="fontSizePct-val"></span></div>
+        <div class="row"><label>Font family</label><input type="text" id="fontFamily" style="flex:1"></div>
+      </fieldset>
+    </section>
+
+    <!-- FORMAT -->
+    <section class="tab" id="tab-format">
+      <fieldset>
+        <legend>Measure formatting</legend>
+        <div class="row"><label>Decimals</label><input type="number" id="decimals" min="0" max="4" step="1"></div>
+        <div class="checkline"><input type="checkbox" id="thousands"><label for="thousands">Thousands separator</label></div>
+        <div class="row">
+          <label>Display units</label>
+          <select id="displayUnits">
+            <option value="none">None</option>
+            <option value="K">Thousands (K)</option>
+            <option value="M">Millions (M)</option>
+            <option value="auto">Automatic</option>
+          </select>
+        </div>
+        <div class="row"><label>Prefix</label><input type="text" id="numberPrefix" placeholder="e.g. $"></div>
+        <div class="row"><label>Suffix (node labels only)</label><input type="text" id="numberSuffix" placeholder="e.g. &nbsp;students"></div>
+        <p class="hint">The suffix is applied to node value labels (e.g. "7 students"); link labels stay as bare numbers, matching the Infotopics layout. Include a leading space in the suffix.</p>
+      </fieldset>
+    </section>
+
+    <!-- INTERACTIONS -->
+    <section class="tab" id="tab-interactions">
+      <fieldset>
+        <legend>Highlighting &amp; tooltips</legend>
+        <div class="row">
+          <label>Highlight mode</label>
+          <select id="highlightMode">
+            <option value="hover">On hover and click</option>
+            <option value="click">On click</option>
+            <option value="off">Off</option>
+          </select>
+        </div>
+        <div class="checkline"><input type="checkbox" id="tooltips"><label for="tooltips">Show tooltips</label></div>
+        <div class="checkline"><input type="checkbox" id="animate"><label for="animate">Animate transitions</label></div>
+      </fieldset>
+      <fieldset>
+        <legend>Dashboard actions (on click)</legend>
+        <div class="row">
+          <label>Action</label>
+          <select id="actionType">
+            <option value="none">None</option>
+            <option value="filter">Filter target sheets</option>
+            <option value="parameter">Set a parameter</option>
+          </select>
+        </div>
+        <div id="action-filter-opts">
+          <div class="row"><label>Target sheets</label></div>
+          <div id="action-targets" class="indent"></div>
+          <div class="checkline indent"><input type="checkbox" id="clearOnDeselect"><label for="clearOnDeselect">Clear filters on deselect</label></div>
+        </div>
+        <div id="action-param-opts">
+          <div class="row"><label>Parameter</label><select id="actionParameter"></select></div>
+          <p class="hint indent">Clicking a node sets the parameter to the node's value.</p>
+        </div>
+      </fieldset>
+    </section>
+  </main>
+  <footer>
+    <span id="status"></span>
+    <button class="secondary" id="cancel">Cancel</button>
+    <button class="primary" id="save">Save</button>
+  </footer>
+</div>
+<script src="config.js"></script>
+</body>
+</html>
