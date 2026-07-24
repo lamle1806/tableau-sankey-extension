@@ -451,6 +451,8 @@
         if (ia != null && ib != null) return ia - ib;
         return 0;
       });
+    } else if (config.sortNodes === 'data') {
+      sankey.nodeSort(null); // input order: follows Tableau's field sort (incl. manual)
     } else if (config.sortNodes === 'desc') {
       sankey.nodeSort((a, b) => b.value - a.value);
     } else if (config.sortNodes === 'asc') {
@@ -459,7 +461,8 @@
       sankey.nodeSort((a, b) => d3.ascending(a.name, b.name));
     } // 'auto' -> d3 default (crossing minimization)
 
-    if (config.sortLinks === 'desc') sankey.linkSort((a, b) => b.value - a.value);
+    if (config.sortLinks === 'data') sankey.linkSort(null);
+    else if (config.sortLinks === 'desc') sankey.linkSort((a, b) => b.value - a.value);
     else if (config.sortLinks === 'asc') sankey.linkSort((a, b) => a.value - b.value);
 
     let laid;

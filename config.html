@@ -162,7 +162,8 @@
         <div class="row">
           <label>Sort nodes by</label>
           <select id="sortNodes">
-            <option value="auto">Automatic</option>
+            <option value="auto">Automatic (minimize crossings)</option>
+            <option value="data">Data order (respects Tableau field sort)</option>
             <option value="desc">Value, high to low</option>
             <option value="asc">Value, low to high</option>
             <option value="alpha">Alphabetical</option>
@@ -172,6 +173,7 @@
           <label>Sort links by</label>
           <select id="sortLinks">
             <option value="auto">Automatic</option>
+            <option value="data">Data order (respects Tableau field sort)</option>
             <option value="desc">High to low</option>
             <option value="asc">Low to high</option>
           </select>
