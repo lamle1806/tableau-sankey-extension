@@ -454,14 +454,16 @@
         return 0;
       });
     } else if (config.sortNodes === 'data') {
-      sankey.nodeSort(null); // input order: follows the summary-data row order
+      // Tableau returns summary rows in reverse of the worksheet's field sort,
+      // so reverse insertion order (node.index) to match the displayed sort
+      sankey.nodeSort((a, b) => b.index - a.index);
     } else if (config.sortNodes === 'custom') {
       // order each level by the user-defined value list; unlisted values keep data order
       sankey.nodeSort((a, b) => {
         const order = (config.valueOrder && config.valueOrder[levelCaptions[a.level]]) || [];
         const ia = order.indexOf(a.name), ib = order.indexOf(b.name);
         const ra = ia < 0 ? Infinity : ia, rb = ib < 0 ? Infinity : ib;
-        if (ra === rb) return 0;
+        if (ra === rb) return b.index - a.index; // both unlisted: data order (see above)
         return ra - rb;
       });
     } else if (config.sortNodes === 'desc') {
@@ -472,7 +474,7 @@
       sankey.nodeSort((a, b) => d3.ascending(a.name, b.name));
     } // 'auto' -> d3 default (crossing minimization)
 
-    if (config.sortLinks === 'data') sankey.linkSort(null);
+    if (config.sortLinks === 'data') sankey.linkSort((a, b) => b.index - a.index); // reversed: see nodeSort 'data'
     else if (config.sortLinks === 'desc') sankey.linkSort((a, b) => b.value - a.value);
     else if (config.sortLinks === 'asc') sankey.linkSort((a, b) => a.value - b.value);
 
