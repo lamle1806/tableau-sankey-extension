@@ -10,7 +10,7 @@ Built by the Data team. No external dependencies at runtime: d3, d3-sankey, and 
 |---|---|
 | `index.html` / `main.js` / `styles.css` | the viz |
 | `config.html` / `config.js` | configuration dialog (opens from the extension's context menu) |
-| `sankey-autocontrast.trex` | manifest to add the extension to a dashboard; update the URL after hosting |
+| `sankey-autocontrast-viz.trex` | manifest to add the extension to a worksheet's Marks card; update the URL after hosting |
 | `lib/` | vendored d3 v7, d3-sankey 0.12.3, Tableau Extensions API 1.x |
 
 ## Features
@@ -27,9 +27,9 @@ Built by the Data team. No external dependencies at runtime: d3, d3-sankey, and 
 
 ## Worksheet requirements
 
-The extension reads a worksheet that must be **on the same dashboard** (it can be tucked behind another object or sized 1x1 px).
+The extension is a **viz (worksheet) extension**: it renders on the worksheet itself and reads its fields from the Marks card encoding tiles — 2+ dimensions on **Levels** (ordered left to right, e.g. `Current Unit`, `Reading Goal`) and a measure on **Link Value** (e.g. `CNTD(Student ID)`). Fields can also be mapped manually in the configuration dialog instead.
 
-Build the worksheet so its summary data has one column per level plus the measure, e.g. put `Current Unit`, `Reading Goal` (and any middle level) on Rows and the measure (e.g. `CNTD(Student ID)`) on Text/Detail. Each row = one combination of level values with its measure value.
+(The code also still runs in the legacy dashboard-extension mode for workbooks that embedded the old dashboard manifest, reading a separate worksheet on the same dashboard.)
 
 ## Local preview
 
@@ -47,17 +47,17 @@ Tableau Cloud can only load extensions from a public HTTPS URL. GitHub Pages is 
 2. Copy the contents of this folder into the repo root and push.
 3. Repo Settings → Pages → Source: "Deploy from a branch", branch `main`, folder `/ (root)`.
 4. Your URL becomes `https://<org-or-user>.github.io/tableau-sankey-extension/index.html`.
-5. Edit `sankey-autocontrast.trex` and replace `https://YOUR-HOST-HERE/sankey-autocontrast/index.html` with that URL.
+5. Edit `sankey-autocontrast-viz.trex` and replace the `<url>` value with that URL.
 
 Any other static HTTPS host (Netlify, S3 + CloudFront) works the same way.
 
 ## Tableau Cloud setup
 
 1. **Site admin, one time:** Settings → Extensions → under "Extensions Safe List" (network-enabled extensions), add the hosted URL (`https://…/index.html`). "Allow full data access" is **not** needed; "Prompt users" is optional.
-2. Open the workbook in web authoring, edit the dashboard that has the sankey worksheet on it (add the worksheet to the dashboard if it is not there; it can be hidden).
-3. Drag the **Extension** object onto the dashboard → in the "Add an Extension" dialog choose **Access Local Extensions** and upload `sankey-autocontrast.trex`.
-4. The placeholder appears; click **Configure…** (also available from the extension's context menu ▼).
-5. In the dialog: pick the worksheet, set Level 1..N in left-to-right order, pick the measure, then adjust Layout / Colors / Labels / Format / Interactions. Save.
+2. Open the workbook in web authoring and go to (or create) the worksheet for the sankey.
+3. On the Marks card, open the mark type dropdown → **Add Extension** → choose **Access Local Extensions** and upload `sankey-autocontrast-viz.trex`.
+4. Drop 2+ dimensions on the **Levels** tile (left-to-right order) and a measure on the **Link Value** tile.
+5. Click **Configure…** (extension context menu ▼) to adjust Layout / Colors / Labels / Format / Interactions. Save.
 
 ## Notes and limitations
 
