@@ -433,29 +433,40 @@
     $('clear-order').addEventListener('click', () => { config.customOrder = {}; status('Manual node order cleared.'); });
 
     $('cancel').addEventListener('click', () => tableau.extensions.ui.closeDialog(''));
-    $('save').addEventListener('click', async () => {
-      config.levels = config.levels.filter(Boolean);
+
+    // validate and persist settings; keeps in-dialog state (e.g. blank level rows) intact.
+    // returns true when saved so callers can decide whether to close the dialog.
+    async function applyConfig() {
+      const cleaned = Object.assign({}, config, { levels: config.levels.filter(Boolean) });
       if (VIZ_MODE) {
         // empty mapping is fine: fields then come from the Marks card encoding tiles
-        if (config.levels.length || config.measure) {
-          if (config.levels.length < 2) { status('Choose at least two level dimensions (or clear all to use the Marks card tiles).'); return; }
-          if (new Set(config.levels).size !== config.levels.length) { status('Each level must use a different dimension.'); return; }
-          if (!config.measure) { status('Choose a measure (or clear all to use the Marks card tiles).'); return; }
+        if (cleaned.levels.length || cleaned.measure) {
+          if (cleaned.levels.length < 2) { status('Choose at least two level dimensions (or clear all to use the Marks card tiles).'); return false; }
+          if (new Set(cleaned.levels).size !== cleaned.levels.length) { status('Each level must use a different dimension.'); return false; }
+          if (!cleaned.measure) { status('Choose a measure (or clear all to use the Marks card tiles).'); return false; }
         }
       } else {
-        if (!config.worksheet) { status('Choose a worksheet first.'); return; }
-        if (config.levels.length < 2) { status('Choose at least two level dimensions.'); return; }
-        if (new Set(config.levels).size !== config.levels.length) { status('Each level must use a different dimension.'); return; }
-        if (!config.measure) { status('Choose a measure.'); return; }
+        if (!cleaned.worksheet) { status('Choose a worksheet first.'); return false; }
+        if (cleaned.levels.length < 2) { status('Choose at least two level dimensions.'); return false; }
+        if (new Set(cleaned.levels).size !== cleaned.levels.length) { status('Each level must use a different dimension.'); return false; }
+        if (!cleaned.measure) { status('Choose a measure.'); return false; }
       }
       status('Saving…');
-      tableau.extensions.settings.set('config', JSON.stringify(config));
+      tableau.extensions.settings.set('config', JSON.stringify(cleaned));
       try {
         await tableau.extensions.settings.saveAsync();
-        tableau.extensions.ui.closeDialog('saved');
+        return true;
       } catch (e) {
         status('Save failed: ' + e.message);
+        return false;
       }
+    }
+
+    $('apply').addEventListener('click', async () => {
+      if (await applyConfig()) status('Applied.');
+    });
+    $('save').addEventListener('click', async () => {
+      if (await applyConfig()) tableau.extensions.ui.closeDialog('saved');
     });
   }
 
